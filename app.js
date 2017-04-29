@@ -17,43 +17,53 @@ const handleRequest = (entryUrl) => {
     // const queryParams = url.parse(path, true).query;
     // const callback = queryParams.callback;
     
-    superagent.get(entryUrl)
-    .end(function(err, result) {
+    superagent
+        .get(entryUrl)
+        .timeout({
+            response: 3000,
+            deadline: 10000
+        })
+        .end(function(err, result) {
 
-        if(err) {
-            console.log(count++, entryUrl,  'err:', err.status);
-            return;
-        }
-        
-        if(!result.text) {
-            console.log(count, entryUrl, '没有内容');
-            return; 
-        }
-        const $ = cheerio.load(result.text);
-        const aEle = $('a');
-        const jq132 = $("script[src*='1.3.2']");
-        if(jq132.length) {
-            console.log(count, entryUrl, jq132.attr('src'));
-            fs.appendFile('jq132.txt', JSON.stringify(entryUrl + '--:--' + jq132.attr('src')) + '\n');
-        } else {
-            console.log(count, '没有 jq 1.3.2');
-        }
-        count++;
-        Array.prototype.forEach.call(aEle, function(link){
-
-            link = $(link).attr('href');
-            if(filterUrl(link) && !links[link]) {
-                links[link] = true;
-                urls.push(link);
-                fs.appendFile('links.txt', JSON.stringify(link) + '\n');
-                if(/^\/.+(html)$/.test(link)) {
-                    link = 'http://about.pingan.com' + link;
+            if(err) {
+                if(err.timeout) {
+                    console.log(count, 'timeout:', entryUrl);
+                    handleRequest(entryUrl);
+                } else {
+                    console.log(count++, 'err:', err.status, entryUrl);
                 }
-                
-                handleRequest(link);
+                return;
             }
+            
+            if(!result.text) {
+                console.log(count, entryUrl, '没有内容');
+                return; 
+            }
+            const $ = cheerio.load(result.text);
+            const aEle = $('a');
+            const jq132 = $("script[src*='1.3.2']");
+            if(jq132.length) {
+                console.log(count, entryUrl, jq132.attr('src'));
+                fs.appendFile('jq132.txt', JSON.stringify(entryUrl + '--:--' + jq132.attr('src')) + '\n');
+            } else {
+                console.log(count, '没有 jq 1.3.2');
+            }
+            count++;
+            Array.prototype.forEach.call(aEle, function(link){
+
+                link = $(link).attr('href');
+                if(filterUrl(link) && !links[link]) {
+                    links[link] = true;
+                    urls.push(link);
+                    fs.appendFile('links.txt', JSON.stringify(link) + '\n');
+                    if(/^\/.+(html)$/.test(link)) {
+                        link = 'http://about.pingan.com' + link;
+                    }
+                    
+                    handleRequest(link);
+                }
+            });
         });
-    })
 } 
 
 const filterUrl = (url) => {
