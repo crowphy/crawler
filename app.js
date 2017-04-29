@@ -1,14 +1,14 @@
-const http = require('http'),
-      url = require('url');
+/*
+ *@author Crowphy
+ *爬虫 获取一个站点所有指定的相关内容
+*/
+const url = require('url');
       superagent = require('superagent'),
       cheerio = require('cheerio'),
-      async = require('async'),
-      eventproxy = require('eventproxy'),
       fs = require('fs');
 
 const entryUrl = 'http://about.pingan.com';
 const links = {};
-const urls = [];
 let count = 0;
 
 const handleRequest = (entryUrl) => {
@@ -49,20 +49,20 @@ const handleRequest = (entryUrl) => {
                 console.log(count, '没有 jq 1.3.2');
             }
             count++;
-            Array.prototype.forEach.call(aEle, function(link){
+            const urlArr = [];
+            Array.prototype.forEach.call(aEle, function(link) {
 
                 link = $(link).attr('href');
                 if(filterUrl(link) && !links[link]) {
                     links[link] = true;
-                    urls.push(link);
                     fs.appendFile('links.txt', JSON.stringify(link) + '\n');
                     if(/^\/.+(html)$/.test(link)) {
                         link = 'http://about.pingan.com' + link;
                     }
-                    
                     handleRequest(link);
                 }
             });
+
         });
 } 
 
@@ -76,12 +76,9 @@ const filterUrl = (url) => {
         return null;
     }
 }
-if(fs.existsSync('links.txt')) {
-    fs.unlink('links.txt');
-}
-if(fs.existsSync('jq132.txt')) {
-                fs.unlink('jq132.txt');
-            }
+// 检查本地是否存在该文件，若存在就删除
+fs.existsSync('links.txt') && fs.unlink('links.txt');
+fs.existsSync('jq132.txt') && fs.unlink('jq132.txt');
 handleRequest(entryUrl);
 // http.createServer(function(req, res) {
 
