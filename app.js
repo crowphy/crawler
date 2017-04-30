@@ -5,11 +5,20 @@
 const url = require('url');
       superagent = require('superagent'),
       cheerio = require('cheerio'),
-      fs = require('fs');
+      fs = require('fs'),
+      readline = require('readline');
 
-const entryUrl = 'http://about.pingan.com';
+const readEntry = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+})
+
 const links = {};
 let count = 0;
+const questions = ['请输入入口 url:', '请输入您要过滤的链接正则表达式内容(形如:/您输入的内容/):', '请输入要匹配的内容正则表达式(形如:/您输入的内容/):'];
+const answers = [];
+let index = 0;
+
 
 const handleRequest = (entryUrl) => {
 
@@ -42,14 +51,15 @@ const handleRequest = (entryUrl) => {
             const $ = cheerio.load(result.text);
             const aEle = $('a');
             const jq132 = $("script[src*='1.3.2']");
-            if(jq132.length) {
+            const strReg = new RegExp(answers[2]);
+            const isTargetIncluded = result.text.search(strReg);
+            if(isTargetIncluded) {
                 console.log(count, entryUrl, jq132.attr('src'));
                 fs.appendFile('jq132.txt', JSON.stringify(entryUrl + '--:--' + jq132.attr('src')) + '\n');
             } else {
-                console.log(count, '没有 jq 1.3.2');
+                console.log(count, '没有找到' + answers[2]);
             }
             count++;
-            const urlArr = [];
             Array.prototype.forEach.call(aEle, function(link) {
 
                 link = $(link).attr('href');
@@ -57,7 +67,7 @@ const handleRequest = (entryUrl) => {
                     links[link] = true;
                     fs.appendFile('links.txt', JSON.stringify(link) + '\n');
                     if(/^\/.+(html)$/.test(link)) {
-                        link = 'http://about.pingan.com' + link;
+                        link = answers[0] + link;
                     }
                     handleRequest(link);
                 }
@@ -68,7 +78,9 @@ const handleRequest = (entryUrl) => {
 
 const filterUrl = (url) => {
 
-    const regExp = /^(http\:\/\/|https\:\/\/)?(about.pingan.com){1}.*(html)$|^\/(?!.*xinwen).+(html)$/;
+    let regExp = new RegExp(answers[1]);
+    // console.log(regExp == /^(http\:\/\/|https\:\/\/)?(about.pingan.com){1}.*(html)$|^\/(?!.*xinwen).+(html)$/);
+    // regExp = /^(http\:\/\/|https\:\/\/)?(about.pingan.com){1}.*(html)$|^\/(?!.*xinwen).+(html)$/;
     let isRequiredUrl = regExp.test(url);
     if(isRequiredUrl) {
         return url;
@@ -79,7 +91,27 @@ const filterUrl = (url) => {
 // 检查本地是否存在该文件，若存在就删除
 fs.existsSync('links.txt') && fs.unlink('links.txt');
 fs.existsSync('jq132.txt') && fs.unlink('jq132.txt');
-handleRequest(entryUrl);
+
+const runQuestionLoop = () => {
+
+    if(index === questions.length) {
+        readEntry.close();
+        handleRequest(answers[0]);
+        return;
+    }
+
+    let question = questions[index];
+
+    readEntry.question(question, (answer) => {
+        console.log('您输入的内容为:', answer);
+        answers[index] = answer;
+        index++;
+        runQuestionLoop();
+
+    })
+}
+runQuestionLoop();
+// 
 // http.createServer(function(req, res) {
 
 //     handleRequest(entryUrl, res, req);
